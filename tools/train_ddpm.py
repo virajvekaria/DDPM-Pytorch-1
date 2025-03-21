@@ -9,6 +9,7 @@ from dataset.mnist_dataset import MnistDataset
 from torch.utils.data import DataLoader
 from models.unet_base import Unet
 from scheduler.linear_noise_scheduler import LinearNoiseScheduler
+from tools.sample_ddpm import sample
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -34,7 +35,7 @@ def train(args):
                                      beta_end=diffusion_config['beta_end'])
     
     # Create the dataset
-    mnist = MnistDataset('train', im_path=dataset_config['im_path'])
+    mnist = MnistDataset(im_path=dataset_config['im_path'])
     mnist_loader = DataLoader(mnist, batch_size=train_config['batch_size'], shuffle=True, num_workers=4)
     
     # Instantiate the model
@@ -54,6 +55,7 @@ def train(args):
     num_epochs = train_config['num_epochs']
     optimizer = Adam(model.parameters(), lr=train_config['lr'])
     criterion = torch.nn.MSELoss()
+    # print("Sample batch shape:", next(iter(mnist_loader)).shape)
     
     # Run training
     for epoch_idx in range(num_epochs):
@@ -77,11 +79,18 @@ def train(args):
             loss.backward()
             optimizer.step()
         print('Finished epoch:{} | Loss : {:.4f}'.format(
-            epoch_idx + 1,
-            np.mean(losses),
+        epoch_idx + 1,
+        np.mean(losses),
         ))
+        
+        # Save checkpoint
         torch.save(model.state_dict(), os.path.join(train_config['task_name'],
                                                     train_config['ckpt_name']))
+
+        # model.eval()
+        # with torch.no_grad():
+        #     sample(model, scheduler, train_config, model_config, diffusion_config)
+        # model.train()
     
     print('Done Training ...')
     
